@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>One-Click Save Image settings</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>One-Click Save Image</h1>
+  <p class="muted">Right-click → <b>One-click save image</b>, or press your shortcut while hovering an image.</p>
+
+  <section>
+    <h2>Keyboard shortcut</h2>
+    <label class="row"><input type="checkbox" id="hkEnabled"> Enable shortcut</label>
+    <div class="row">
+      <select id="hkMods">
+        <option value="ctrl">Ctrl</option>
+        <option value="alt">Alt</option>
+        <option value="shift">Shift</option>
+        <option value="ctrl+shift">Ctrl + Shift</option>
+        <option value="ctrl+alt">Ctrl + Alt</option>
+        <option value="alt+shift">Alt + Shift</option>
+        <option value="ctrl+alt+shift">Ctrl + Alt + Shift</option>
+      </select>
+      <span>+</span>
+      <input id="hkKey" readonly placeholder="Click, then press a key">
+    </div>
+    <p id="hkWarn" class="warn" hidden></p>
+  </section>
+
+  <section>
+    <h2>Save location</h2>
+    <label class="row"><input type="radio" name="mode" value="folder"> A folder I choose</label>
+    <div class="row indent">
+      <button id="browse">Browse…</button>
+      <span id="dirName" class="muted">No folder chosen</span>
+      <button id="regrant" hidden>Grant access</button>
+    </div>
+    <p id="fsMissing" class="warn indent" hidden>
+      The folder picker is turned off in this browser. In Brave, open
+      <code>brave://flags/#file-system-access-api</code>, set it to <b>Enabled</b>, and restart Brave.
+      Until then, use the Downloads option below.
+    </p>
+    <label class="row"><input type="radio" name="mode" value="downloads"> A subfolder of my Downloads folder</label>
+    <div class="row indent">
+      <span class="muted">Downloads /</span>
+      <input id="subfolder" placeholder="(directly in Downloads)">
+    </div>
+  </section>
+
+  <section>
+    <h2>Behaviour</h2>
+    <label class="row"><input type="checkbox" id="hires"> Find the highest-resolution version (linked image, srcset, full-size CDN copies)</label>
+    <label class="row"><input type="checkbox" id="unblock"> Stop sites from blocking the right-click menu on images</label>
+    <label class="row"><input type="checkbox" id="toast"> Show a "Saved" message on the page</label>
+  </section>
+
+  <p id="status" class="ok"></p>
+</main>
+<script src="defaults.js"></script>
+<script src="shared.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

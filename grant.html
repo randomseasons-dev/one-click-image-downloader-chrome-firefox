@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Allow folder access</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>Allow saving to your folder</h1>
+  <p>The browser needs your OK again to save into <b id="dir">your folder</b>.
+     Choose <b>Allow on every visit</b> if it's offered so this doesn't come back.</p>
+  <p class="muted" id="count"></p>
+  <div class="row">
+    <button id="allow" class="primary">Allow &amp; save</button>
+    <button id="fallback">Save to Downloads instead</button>
+  </div>
+  <p id="status" class="warn"></p>
+</main>
+<script src="shared.js"></script>
+<script src="grant.js"></script>
+</body>
+</html>
