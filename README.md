@@ -18,13 +18,6 @@ After editing any file here, press the reload ↻ button on the extension's card
 
 ## Install — Firefox (128 or newer)
 
-- **Try it now (until Firefox closes):** open `about:debugging#/runtime/this-firefox`, click
-  **Load Temporary Add-on…**, and pick `dist\firefox\manifest.json`.
-- **Keep it installed:** normal Firefox only installs signed add-ons. Signing is free: on
-  addons.mozilla.org go to *Submit a New Add-on*, choose **On your own** (unlisted, not published
-  in the store), upload the `.xpi`, then download the signed file and drag it into Firefox.
-- **Developer Edition / Nightly:** set `xpinstall.signatures.required` to `false` in
-  `about:config`, then drag the unsigned `.xpi` into Firefox.
 
 In Firefox:
 
