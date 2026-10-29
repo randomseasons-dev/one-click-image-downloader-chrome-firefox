@@ -88,6 +88,7 @@ to disk directly, not downloaded.
 | `manifest.json` | Manifest for Brave / Chrome / Edge |
 | `firefox/manifest.json` | Manifest for Firefox (event-page background, no offscreen, gecko id) |
 | `build.ps1` | Builds both packages into `dist\` |
+| `sign-firefox.ps1` | Builds, then gets the Firefox package signed by Mozilla (unlisted) |
 | `background.js` | Menu, shortcut routing, candidate download + ranking, saving |
 | `content.js` | Runs in every page: cursor tracking, image finding, right-click unblocking, toast |
 | `offscreen.html/js` | Writes to the chosen folder; makes blob URLs for downloads |
