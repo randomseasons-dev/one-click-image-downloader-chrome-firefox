@@ -1,8 +1,8 @@
 # One-Click Save Image
 
 A Brave / Chrome / Firefox extension (Manifest V3). Right-click → **One-click save image**, or
-press your shortcut while the mouse is over an image, and the image is saved straight to your
-folder — no dialog, highest resolution available, even on sites that block "Save image as…".
+press your shortcut key (configurable) while the mouse is over an image, and the image is saved straight to your
+folder — no ask dialog (configurable), highest resolution available, even on sites that block "Save image as…".
 
 notice: on Windows, Chrome-based browsers refuse to install a .crx that didn’t come from the Chrome Web Store. Thus no .crx file for now. 
 
