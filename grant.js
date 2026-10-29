@@ -17,12 +17,12 @@ const $ = id => document.getElementById(id);
       if (!value.perm) continue;
       const name = await ocsiWriteUnique(dir, value.name, value.blob);
       await OCSI_DB.del('pending', key);
-      chrome.runtime.sendMessage({ type: 'ocsi:saved', tabId: value.tabId, name });
+      EXT.runtime.sendMessage({ type: 'ocsi:saved', tabId: value.tabId, name });
     }
     window.close();
   };
   $('fallback').onclick = async () => {
-    await chrome.runtime.sendMessage({ type: 'ocsi:fallback' }).catch(() => {});
+    await EXT.runtime.sendMessage({ type: 'ocsi:fallback' }).catch(() => {});
     window.close();
   };
 })();

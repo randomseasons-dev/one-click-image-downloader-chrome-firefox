@@ -10,6 +10,12 @@
   <h1>One-Click Save Image</h1>
   <p class="muted">Right-click → <b>One-click save image</b>, or press your shortcut while hovering an image.</p>
 
+  <section id="access" hidden>
+    <h2>Site access needed</h2>
+    <p class="warn">The extension isn't allowed to read websites, so it can't find or download images.</p>
+    <button id="grantAccess" class="primary">Allow on all websites</button>
+  </section>
+
   <section>
     <h2>Keyboard shortcut</h2>
     <label class="row"><input type="checkbox" id="hkEnabled"> Enable shortcut</label>
@@ -41,6 +47,10 @@
       The folder picker is turned off in this browser. In Brave, open
       <code>brave://flags/#file-system-access-api</code>, set it to <b>Enabled</b>, and restart Brave.
       Until then, use the Downloads option below.
+    </p>
+    <p id="fsFirefox" class="warn indent" hidden>
+      Firefox can't save into a folder picked here. Use the option below, and to save somewhere other
+      than Downloads, change <b>Settings → General → Downloads → Save files to</b> in Firefox.
     </p>
     <label class="row"><input type="radio" name="mode" value="downloads"> A subfolder of my Downloads folder</label>
     <div class="row indent">

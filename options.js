@@ -8,7 +8,7 @@ function saved(text = 'Saved ✓') {
   clearTimeout(statusTimer);
   statusTimer = setTimeout(() => ($('status').textContent = ''), 1800);
 }
-const save = obj => chrome.storage.sync.set(obj).then(() => saved());
+const save = obj => EXT.storage.sync.set(obj).then(() => saved());
 
 function keyLabel(e) {
   if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
@@ -30,7 +30,7 @@ async function showFolder() {
 }
 
 async function init() {
-  const cfg = await chrome.storage.sync.get(OCSI_DEFAULTS);
+  const cfg = await EXT.storage.sync.get(OCSI_DEFAULTS);
   $('hkEnabled').checked = cfg.hkEnabled;
   $('hkMods').value = cfg.hkMods;
   $('hkKey').value = cfg.hkLabel;
@@ -39,10 +39,22 @@ async function init() {
   document.querySelector(`input[name=mode][value=${cfg.mode}]`).checked = true;
   checkReserved(cfg);
 
-  const fsOk = typeof window.showDirectoryPicker === 'function';
-  $('fsMissing').hidden = fsOk;
+  const firefox = !EXT.offscreen;                // Firefox: no offscreen API, no folder picker
+  const fsOk = !firefox && typeof window.showDirectoryPicker === 'function';
+  $('fsMissing').hidden = fsOk || firefox;
+  $('fsFirefox').hidden = !firefox;
   $('browse').disabled = !fsOk;
+  if (firefox) {
+    document.querySelector('input[name=mode][value=folder]').disabled = true;
+    document.querySelector('input[name=mode][value=downloads]').checked = true;
+  }
   if (fsOk) showFolder();
+
+  // Firefox lets people switch off "Access your data for all websites"; the extension needs it.
+  const ALL = { origins: ['<all_urls>'] };
+  const showAccess = async () => { $('access').hidden = await EXT.permissions.contains(ALL); };
+  showAccess();
+  $('grantAccess').onclick = async () => { await EXT.permissions.request(ALL); showAccess(); };
 
   $('hkEnabled').onchange = e => save({ hkEnabled: e.target.checked });
   $('hkMods').onchange = e => { cfg.hkMods = e.target.value; checkReserved(cfg); save({ hkMods: cfg.hkMods }); };

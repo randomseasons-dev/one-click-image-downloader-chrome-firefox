@@ -1,29 +1,34 @@
-// One-Click Save Image — background service worker.
+// One-Click Save Image — background (service worker in Chrome/Brave, event page in Firefox).
 // Context menu + shortcut → ask the frame under the cursor for its image → fetch every
 // candidate (bypassing CORS / hotlink checks) → keep the largest → write it to disk.
-importScripts('defaults.js', 'shared.js');
+// Firefox loads defaults.js and shared.js through the manifest instead.
+if (typeof importScripts === 'function') importScripts('defaults.js', 'shared.js');
 
 const MENU_ID = 'ocsi-save';
 const MAX_CANDIDATES = 12;
 const REFERER_RULE = 1;
 
-chrome.runtime.onInstalled.addListener(async () => {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: MENU_ID, title: 'One-click save image', contexts: ['all'] });
-  });
+async function createMenu() {
+  await EXT.contextMenus.removeAll();
+  EXT.contextMenus.create({ id: MENU_ID, title: 'One-click save image', contexts: ['all'] });
+}
+EXT.runtime.onStartup.addListener(createMenu);   // Firefox doesn't always keep menus across restarts
+
+EXT.runtime.onInstalled.addListener(async () => {
+  await createMenu();
   // Tabs that were open before install have no content script yet.
-  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] });
+  const tabs = await EXT.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] });
   for (const t of tabs) inject(t.id);
 });
 
-chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
+EXT.action.onClicked.addListener(() => EXT.runtime.openOptionsPage());
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+EXT.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== MENU_ID || !tab?.id) return;
   enqueue(() => run(tab, info.frameId ?? 0, true, info.srcUrl || null));
 });
 
-chrome.runtime.onMessage.addListener((m, sender) => {
+EXT.runtime.onMessage.addListener((m, sender) => {
   if (m?.type === 'ocsi:hotkey' && sender.tab) {
     const tab = sender.tab;
     enqueue(async () => run(tab, await frameUnderMouse(tab.id, sender.frameId), false, null));
@@ -34,27 +39,27 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   }
 });
 
-chrome.windows.onRemoved.addListener(async id => {
-  const { grantWin } = await chrome.storage.session.get('grantWin');
-  if (grantWin === id) chrome.storage.session.remove('grantWin');
+EXT.windows.onRemoved.addListener(async id => {
+  const { grantWin } = await EXT.storage.session.get('grantWin');
+  if (grantWin === id) EXT.storage.session.remove('grantWin');
 });
 
 // One save at a time: keeps the Referer rule and the toasts in order.
 let chain = Promise.resolve();
 const enqueue = fn => (chain = chain.then(fn).catch(e => console.error('[ocsi]', e)));
 
-const inject = tabId => chrome.scripting.executeScript({
+const inject = tabId => EXT.scripting.executeScript({
   target: { tabId, allFrames: true }, files: ['defaults.js', 'content.js'],
 }).catch(() => {});
 
 async function ask(tabId, frameId, msg) {
-  try { return await chrome.tabs.sendMessage(tabId, msg, { frameId }); } catch { return undefined; }
+  try { return await EXT.tabs.sendMessage(tabId, msg, { frameId }); } catch { return undefined; }
 }
 
 async function toast(tabId, text, kind) {
   if (tabId == null) return;
   if (kind !== 'err') {
-    const { toast: on } = await chrome.storage.sync.get({ toast: OCSI_DEFAULTS.toast });
+    const { toast: on } = await EXT.storage.sync.get({ toast: OCSI_DEFAULTS.toast });
     if (!on) return;
   }
   ask(tabId, 0, { type: 'ocsi:toast', text, kind });
@@ -63,7 +68,7 @@ async function toast(tabId, text, kind) {
 // The shortcut arrives in the focused frame; the image is in the frame the mouse last moved in.
 async function frameUnderMouse(tabId, fallback) {
   try {
-    const res = await chrome.scripting.executeScript({
+    const res = await EXT.scripting.executeScript({
       target: { tabId, allFrames: true },
       func: () => (window.__ocsi && window.__ocsi.t) || 0,
     });
@@ -77,7 +82,7 @@ async function frameUnderMouse(tabId, fallback) {
 // ---------- main flow ----------
 
 async function run(tab, frameId, useCtx, srcUrl) {
-  const cfg = await chrome.storage.sync.get(OCSI_DEFAULTS);
+  const cfg = await EXT.storage.sync.get(OCSI_DEFAULTS);
   let t = await ask(tab.id, frameId, { type: 'ocsi:collect', useCtx });
   if (t === undefined) { await inject(tab.id); t = await ask(tab.id, frameId, { type: 'ocsi:collect', useCtx }); }
   t = t || { found: false, urls: [], primary: null, pageUrl: tab.url, title: tab.title };
@@ -93,7 +98,7 @@ async function run(tab, frameId, useCtx, srcUrl) {
     const direct = [t.primary, ...t.urls].find(u => /^https?:/i.test(u || ''));
     if (direct) {                                 // last resort: let the browser download it
       const filename = withSub(cfg.subfolder, cleanName(fileBase(direct) || 'image') || 'image');
-      await chrome.downloads.download({ url: direct, filename, conflictAction: 'uniquify', saveAs: false });
+      await EXT.downloads.download({ url: direct, filename, conflictAction: 'uniquify', saveAs: false });
       return toast(tab.id, 'Site refused the request — handed it to the browser download instead', 'info');
     }
     return toast(tab.id, 'No image found under the cursor', 'err');
@@ -203,18 +208,18 @@ async function setReferer(pageUrl, urls) {
   const hosts = [...new Set(urls.map(u => { try { return /^https?:/.test(u) ? new URL(u).hostname : null; } catch { return null; } }).filter(Boolean))];
   if (!hosts.length) return;
   try {
-    await chrome.declarativeNetRequest.updateSessionRules({
+    await EXT.declarativeNetRequest.updateSessionRules({
       removeRuleIds: [REFERER_RULE],
       addRules: [{
         id: REFERER_RULE,
         priority: 1,
         action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Referer', operation: 'set', value: pageUrl }] },
-        condition: { tabIds: [chrome.tabs.TAB_ID_NONE], requestDomains: hosts, resourceTypes: ['xmlhttprequest', 'other'] },
+        condition: { tabIds: [EXT.tabs.TAB_ID_NONE], requestDomains: hosts, resourceTypes: ['xmlhttprequest', 'other'] },
       }],
     });
   } catch (e) { console.warn('[ocsi] referer rule', e); }
 }
-const clearReferer = () => chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [REFERER_RULE] }).catch(() => {});
+const clearReferer = () => EXT.declarativeNetRequest.updateSessionRules({ removeRuleIds: [REFERER_RULE] }).catch(() => {});
 
 // Fetch one candidate; null unless it really is an image. px = pixel count for ranking.
 async function load(u) {
@@ -269,7 +274,7 @@ function sniff(b) {
 // Crop the element out of a screenshot — works whatever the site does to the file itself.
 async function screenshotCrop(tab, t) {
   try {
-    const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+    const shot = await EXT.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
     const bmp = await createImageBitmap(await (await fetch(shot)).blob());
     const k = bmp.width / t.vw;                   // CSS px → screenshot px (covers zoom + DPI)
     const x0 = Math.max(0, t.rect.x), y0 = Math.max(0, t.rect.y);
@@ -290,7 +295,7 @@ async function screenshotCrop(tab, t) {
 
 // ---------- naming ----------
 
-const EXT = {
+const MIME_EXT = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif',
   'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/tiff': 'tif', 'image/x-icon': 'ico',
   'image/heic': 'heic', 'image/jxl': 'jxl',
@@ -320,7 +325,7 @@ function makeName(p, t) {
   let base = p.finalUrl ? fileBase(p.finalUrl).replace(/\.[a-z0-9]{2,5}$/i, '') : '';
   base = cleanName(base);
   if (base.length < 2 || GENERIC.test(base)) base = cleanName(`${t.alt || t.title || 'image'} ${stamp()}`);
-  return `${base || 'image ' + stamp()}.${EXT[p.type] || 'img'}`;
+  return `${base || 'image ' + stamp()}.${MIME_EXT[p.type] || 'img'}`;
 }
 
 function withSub(sub, name) {
@@ -332,9 +337,9 @@ function withSub(sub, name) {
 
 let creating;
 async function ensureOffscreen() {
-  const has = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  const has = await EXT.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
   if (has.length) return;
-  creating ||= chrome.offscreen.createDocument({
+  creating ||= EXT.offscreen.createDocument({
     url: 'offscreen.html', reasons: ['BLOBS'], justification: 'Write saved images to the chosen folder',
   }).finally(() => { creating = null; });
   await creating;
@@ -344,7 +349,7 @@ async function toOffscreen(msg) {
   for (let i = 0; ; i++) {
     await ensureOffscreen();
     try {
-      const r = await chrome.runtime.sendMessage({ to: 'ocsi-offscreen', ...msg });
+      const r = await EXT.runtime.sendMessage({ to: 'ocsi-offscreen', ...msg });
       if (r !== undefined) return r;
     } catch (e) { if (i) throw e; }
     if (i) return null;
@@ -353,7 +358,7 @@ async function toOffscreen(msg) {
 
 async function deliver(blob, name, cfg, tabId) {
   let note = '';
-  if (cfg.mode === 'folder') {
+  if (cfg.mode === 'folder' && EXT.offscreen) {     // Firefox has no folder picker: Downloads only
     const id = crypto.randomUUID();
     await OCSI_DB.set('pending', id, { blob, name, tabId });
     const r = await toOffscreen({ cmd: 'write', id });
@@ -370,28 +375,45 @@ async function deliver(blob, name, cfg, tabId) {
 }
 
 async function viaDownloads(blob, name, sub) {
-  const id = crypto.randomUUID();
-  await OCSI_DB.set('pending', id, { blob, name });
-  const r = await toOffscreen({ cmd: 'url', id });
-  if (!r?.url) throw new Error(r?.error || 'could not prepare the download');
   const filename = withSub(sub, name);
-  await chrome.downloads.download({ url: r.url, filename, conflictAction: 'uniquify', saveAs: false });
+  if (!EXT.offscreen && typeof URL.createObjectURL === 'function') {
+    // Firefox's background is a page, so it can make the blob URL itself.
+    const url = URL.createObjectURL(blob);
+    try {
+      const dlId = await EXT.downloads.download({ url, filename, conflictAction: 'uniquify', saveAs: false });
+      revokeWhenDone(dlId, url);
+    } catch (e) { URL.revokeObjectURL(url); throw e; }
+  } else {
+    // Chrome's service worker can't make blob URLs: the offscreen page does it.
+    const id = crypto.randomUUID();
+    await OCSI_DB.set('pending', id, { blob, name });
+    const r = await toOffscreen({ cmd: 'url', id });
+    if (!r?.url) throw new Error(r?.error || 'could not prepare the download');
+    await EXT.downloads.download({ url: r.url, filename, conflictAction: 'uniquify', saveAs: false });
+  }
   const dir = filename.slice(0, -name.length - 1);
   return { name, where: dir ? 'Downloads/' + dir : 'Downloads' };
 }
 
+function revokeWhenDone(dlId, url) {
+  const done = () => { EXT.downloads.onChanged.removeListener(watch); clearTimeout(timer); URL.revokeObjectURL(url); };
+  const watch = d => { if (d.id === dlId && d.state && d.state.current !== 'in_progress') done(); };
+  const timer = setTimeout(done, 5 * 60e3);
+  EXT.downloads.onChanged.addListener(watch);
+}
+
 async function openGrant() {
-  const { grantWin } = await chrome.storage.session.get('grantWin');
+  const { grantWin } = await EXT.storage.session.get('grantWin');
   if (grantWin) {
-    try { await chrome.windows.update(grantWin, { focused: true }); return; } catch {}
+    try { await EXT.windows.update(grantWin, { focused: true }); return; } catch {}
   }
-  const w = await chrome.windows.create({ url: 'grant.html', type: 'popup', width: 480, height: 320, focused: true });
-  await chrome.storage.session.set({ grantWin: w.id });
+  const w = await EXT.windows.create({ url: 'grant.html', type: 'popup', width: 480, height: 320, focused: true });
+  await EXT.storage.session.set({ grantWin: w.id });
 }
 
 // The user refused folder access: send everything waiting for it to Downloads instead.
 async function flushPendingToDownloads() {
-  const { subfolder } = await chrome.storage.sync.get({ subfolder: OCSI_DEFAULTS.subfolder });
+  const { subfolder } = await EXT.storage.sync.get({ subfolder: OCSI_DEFAULTS.subfolder });
   for (const { key, value } of await OCSI_DB.entries('pending')) {
     if (!value.perm) continue;
     await OCSI_DB.del('pending', key);

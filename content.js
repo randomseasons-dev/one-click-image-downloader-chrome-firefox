@@ -4,13 +4,13 @@
 (() => {
   if (window.__ocsi?.alive?.()) return;
 
-  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
+  const alive = () => { try { return !!EXT.runtime?.id; } catch { return false; } };
   // t = last mouse move, read by the worker to find which frame the cursor is in.
   const S = (window.__ocsi = { x: -1, y: -1, t: 0, cx: -1, cy: -1, alive });
   let cfg = { ...OCSI_DEFAULTS };
 
-  chrome.storage.sync.get(OCSI_DEFAULTS).then(v => { cfg = v; }, () => {});
-  chrome.storage.onChanged.addListener((ch, area) => {
+  EXT.storage.sync.get(OCSI_DEFAULTS).then(v => { cfg = v; }, () => {});
+  EXT.storage.onChanged.addListener((ch, area) => {
     if (area === 'sync') for (const k in ch) cfg[k] = ch[k].newValue ?? OCSI_DEFAULTS[k];
   });
 
@@ -38,10 +38,10 @@
     if (m === 'shift' && isEditable(e.composedPath()[0])) return; // don't eat capital letters
     e.preventDefault();
     e.stopImmediatePropagation();
-    chrome.runtime.sendMessage({ type: 'ocsi:hotkey' }).catch(() => {});
+    EXT.runtime.sendMessage({ type: 'ocsi:hotkey' }).catch(() => {});
   }, true);
 
-  chrome.runtime.onMessage.addListener((m, _s, reply) => {
+  EXT.runtime.onMessage.addListener((m, _s, reply) => {
     if (m?.type === 'ocsi:collect') {
       collect(m.useCtx).then(reply, e => reply({ found: false, urls: [], error: String(e) }));
       return true;

@@ -3,7 +3,7 @@
 const blobUrls = new Set();
 let idleTimer;
 
-chrome.runtime.onMessage.addListener((m, _s, reply) => {
+EXT.runtime.onMessage.addListener((m, _s, reply) => {
   if (m?.to !== 'ocsi-offscreen') return;
   handle(m).then(reply, e => reply({ error: String(e?.message || e) }));
   return true;
