@@ -19,14 +19,17 @@ After editing any file here, press the reload ↻ button on the extension's card
 ## Install — Firefox (128 or newer)
 
 
-In Firefox:
+1. Download **one-click-save-image-firefox-v1.1-signed.xpi** 
+2. Open it in Firefox: drag the file into a Firefox window, or open `about:addons` → ⚙️ → **Install Add-on From File…** and pick it.
+3. Click **Add** when Firefox asks, then **Okay**.
+4. Click the extension's toolbar icon (or `about:addons` → One-Click Save Image → **Options**) to set your shortcut and save folder.
 
-- Saving goes through Firefox's downloads (Firefox has no folder picker for extensions). To save
-  somewhere other than Downloads, change **Settings → General → Downloads → Save files to**, and
-  set or clear the subfolder in the extension's settings.
-- If you switch off *Access your data for all websites* in `about:addons`, the settings page shows
-  an **Allow on all websites** button; the extension can't find images without it.
-- Private windows: enable **Run in Private Windows** on the extension's page in `about:addons`.
+Notes for Firefox:
+
+- Images save to your Downloads folder, into the subfolder set in the extension's options. To save
+  somewhere else, change Firefox's **Settings → General → Downloads → Save files to**.
+- If the options page shows **Allow on all websites**, click it — the extension can't find images without site access.
+
 
 ## Settings
 
