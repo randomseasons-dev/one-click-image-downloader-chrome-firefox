@@ -4,6 +4,8 @@ A Brave / Chrome / Firefox extension (Manifest V3). Right-click → **One-click 
 press your shortcut while the mouse is over an image, and the image is saved straight to your
 folder — no dialog, highest resolution available, even on sites that block "Save image as…".
 
+notice: on Windows, Chrome-based browsers refuse to install a .crx that didn’t come from the Chrome Web Store. Thus the upload is in zip file, enable the developer on the extension tab and install it directly from the unzipped folder for Chrome. 
+
 ## Build
 
 One source tree serves both browsers. To make the packages:
