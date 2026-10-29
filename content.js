@@ -5,9 +5,26 @@
   if (window.__ocsi?.alive?.()) return;
 
   const alive = () => { try { return !!EXT.runtime?.id; } catch { return false; } };
-  // t = last mouse move, read by the worker to find which frame the cursor is in.
-  const S = (window.__ocsi = { x: -1, y: -1, t: 0, cx: -1, cy: -1, alive });
+
+  // Recent cursor positions, so a save that runs late still uses where the cursor was when
+  // the key was pressed, not where it is now.
+  const TRAIL = 32, trail = [];
+  let trailIdx = 0;
+  const posAt = at => {
+    let best = null;
+    for (const p of trail) if (p.t <= at && (!best || p.t > best.t)) best = p;
+    return best;
+  };
+  // moveTimeAt(at) = last mouse move in this frame up to `at`; the worker compares it across
+  // frames to find which frame the cursor was in.
+  const S = (window.__ocsi = {
+    x: -1, y: -1, t: 0, cx: -1, cy: -1, alive,
+    moveTimeAt: at => posAt(at)?.t || 0,
+  });
   let cfg = { ...OCSI_DEFAULTS };
+
+  // Shortcut presses already collected in this frame, by press time.
+  const jobs = new Map();
 
   EXT.storage.sync.get(OCSI_DEFAULTS).then(v => { cfg = v; }, () => {});
   EXT.storage.onChanged.addListener((ch, area) => {
@@ -16,6 +33,8 @@
 
   addEventListener('mousemove', e => {
     S.x = e.clientX; S.y = e.clientY; S.t = Date.now();
+    trail[trailIdx] = { t: S.t, x: S.x, y: S.y };
+    trailIdx = (trailIdx + 1) % TRAIL;
   }, { capture: true, passive: true });
 
   // Remember where the menu opened. Over an image, stop the page's own handlers so a site
@@ -38,12 +57,22 @@
     if (m === 'shift' && isEditable(e.composedPath()[0])) return; // don't eat capital letters
     e.preventDefault();
     e.stopImmediatePropagation();
-    EXT.runtime.sendMessage({ type: 'ocsi:hotkey' }).catch(() => {});
+    // Find the image right now, before the cursor can move; the worker picks it up later.
+    const at = Date.now();
+    jobs.set(at, collectAt(S.x, S.y));
+    setTimeout(() => jobs.delete(at), 120e3);
+    EXT.runtime.sendMessage({ type: 'ocsi:hotkey', at }).catch(() => {});
   }, true);
 
   EXT.runtime.onMessage.addListener((m, _s, reply) => {
     if (m?.type === 'ocsi:collect') {
-      collect(m.useCtx).then(reply, e => reply({ found: false, urls: [], error: String(e) }));
+      let job;
+      if (m.at && jobs.has(m.at)) job = jobs.get(m.at);       // shortcut pressed in this frame
+      else if (m.at) {                                       // pressed in another frame: use the
+        const p = posAt(m.at) || S;                          // position at the moment of the press
+        job = collectAt(p.x, p.y);
+      } else job = collectAt(S.cx >= 0 ? S.cx : S.x, S.cy >= 0 ? S.cy : S.y);  // context menu
+      job.then(reply, e => reply({ found: false, urls: [], error: String(e) }));
       return true;
     }
     if (m?.type === 'ocsi:pageFetch') {
@@ -256,9 +285,9 @@
     } catch { return null; }
   }
 
-  async function collect(useCtx) {
-    const x = useCtx && S.cx >= 0 ? S.cx : S.x;
-    const y = useCtx && S.cy >= 0 ? S.cy : S.y;
+  // The image at (x, y) is found synchronously, before the first await, so the DOM is read
+  // at call time even though the blob/canvas conversions finish later.
+  async function collectAt(x, y) {
     const base = { pageUrl: location.href, title: document.title, vw: innerWidth, vh: innerHeight };
     const hit = findAt(x, y);
     if (!hit) return { ...base, found: false, urls: [], primary: null };

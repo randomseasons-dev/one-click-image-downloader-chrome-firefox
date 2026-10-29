@@ -25,13 +25,19 @@ EXT.action.onClicked.addListener(() => EXT.runtime.openOptionsPage());
 
 EXT.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== MENU_ID || !tab?.id) return;
-  enqueue(() => run(tab, info.frameId ?? 0, true, info.srcUrl || null));
+  const frameId = info.frameId ?? 0;
+  const found = locate(tab, frameId, { type: 'ocsi:collect' });   // now, not when the queue gets to it
+  enqueue(() => run(tab, frameId, found, info.srcUrl || null));
 });
 
 EXT.runtime.onMessage.addListener((m, sender) => {
   if (m?.type === 'ocsi:hotkey' && sender.tab) {
     const tab = sender.tab;
-    enqueue(async () => run(tab, await frameUnderMouse(tab.id, sender.frameId), false, null));
+    // The page already noted the image when the key went down (m.at); fetch that note now,
+    // and only queue the slow part, so a busy queue or a moving cursor can't change the target.
+    const where = frameUnderMouse(tab.id, sender.frameId, m.at);
+    const found = where.then(f => locate(tab, f, { type: 'ocsi:collect', at: m.at }));
+    enqueue(async () => run(tab, await where, found, null));
   } else if (m?.type === 'ocsi:saved') {
     toast(m.tabId, `Saved ${m.name}`, 'ok');
   } else if (m?.type === 'ocsi:fallback') {
@@ -65,12 +71,14 @@ async function toast(tabId, text, kind) {
   ask(tabId, 0, { type: 'ocsi:toast', text, kind });
 }
 
-// The shortcut arrives in the focused frame; the image is in the frame the mouse last moved in.
-async function frameUnderMouse(tabId, fallback) {
+// The shortcut arrives in the focused frame; the image is in the frame the mouse last moved in
+// before the key was pressed (at).
+async function frameUnderMouse(tabId, fallback, at) {
   try {
     const res = await EXT.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func: () => (window.__ocsi && window.__ocsi.t) || 0,
+      func: at => (window.__ocsi && (window.__ocsi.moveTimeAt ? window.__ocsi.moveTimeAt(at) : window.__ocsi.t)) || 0,
+      args: [at || Date.now()],
     });
     let best = null;
     for (const r of res) if (r.result && (!best || r.result > best.result)) best = r;
@@ -81,11 +89,16 @@ async function frameUnderMouse(tabId, fallback) {
 
 // ---------- main flow ----------
 
-async function run(tab, frameId, useCtx, srcUrl) {
+// Ask the frame what image it saw (injecting the content script first if the tab predates it).
+async function locate(tab, frameId, msg) {
+  let t = await ask(tab.id, frameId, msg);
+  if (t === undefined) { await inject(tab.id); t = await ask(tab.id, frameId, msg); }
+  return t || { found: false, urls: [], primary: null, pageUrl: tab.url, title: tab.title };
+}
+
+async function run(tab, frameId, found, srcUrl) {
   const cfg = await EXT.storage.sync.get(OCSI_DEFAULTS);
-  let t = await ask(tab.id, frameId, { type: 'ocsi:collect', useCtx });
-  if (t === undefined) { await inject(tab.id); t = await ask(tab.id, frameId, { type: 'ocsi:collect', useCtx }); }
-  t = t || { found: false, urls: [], primary: null, pageUrl: tab.url, title: tab.title };
+  const t = await found;
   if (srcUrl) {                                   // the browser's own idea of the image
     if (!t.urls.includes(srcUrl)) t.urls.push(srcUrl);
     t.primary ||= srcUrl;
