@@ -19,7 +19,7 @@ After editing any file here, press the reload ↻ button on the extension's card
 ## Install — Firefox (128 or newer)
 
 
-1. Download **one-click-save-image-firefox-v1.1-signed.xpi** 
+1. Download **one-click-save-image-firefox-v1.2-signed.xpi** 
 2. Open it in Firefox: drag the file into a Firefox window, or open `about:addons` → ⚙️ → **Install Add-on From File…** and pick it.
 3. Click **Add** when Firefox asks, then **Okay**.
 4. Click the extension's toolbar icon (or `about:addons` → One-Click Save Image → **Options**) to set your shortcut and save folder.
